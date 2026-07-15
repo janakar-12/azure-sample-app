@@ -1,0 +1,45 @@
+name: release-dispatch
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  notify-build-repo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send repository_dispatch to build repo
+        env:
+          GH_TOKEN: ${{ secrets.BUILD_REPO_PAT }}
+          BUILD_REPO_OWNER: ${{ vars.BUILD_REPO_OWNER }}
+          BUILD_REPO_NAME: ${{ vars.BUILD_REPO_NAME }}
+          APP_NAME: ${{ vars.APP_NAME }}
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+          APP_REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          APP_REPO_OWNER="${GITHUB_REPOSITORY_OWNER}"
+          SHA="${GITHUB_SHA}"
+
+          curl --fail-with-body -L -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            https://api.github.com/repos/${BUILD_REPO_OWNER}/${BUILD_REPO_NAME}/dispatches \
+            -d @- <<EOF
+          {
+            "event_type": "release-tag-created",
+            "client_payload": {
+              "app_repo_owner": "${APP_REPO_OWNER}",
+              "app_repo_name": "${APP_REPO_NAME}",
+              "app_name": "${APP_NAME}",
+              "tag": "${TAG}",
+              "sha": "${SHA}"
+            }
+          }
+          EOF
