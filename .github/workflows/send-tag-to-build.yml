@@ -1,0 +1,57 @@
+name: Send Tag To Build Repo
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag in azure-sample-app"
+        required: true
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve tag context
+        id: vars
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "source_tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "source_ref=refs/tags/${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            echo "source_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "source_ref=${{ github.ref }}" >> "$GITHUB_OUTPUT"
+            echo "source_sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: janakar-12
+          repositories: azure-sample-build
+
+      - name: Send repository_dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          repository: janakar-12/azure-sample-build
+          event-type: app-tag-pushed
+          client-payload: |
+            {
+              "source_repository": "${{ github.repository }}",
+              "source_tag": "${{ steps.vars.outputs.source_tag }}",
+              "source_ref": "${{ steps.vars.outputs.source_ref }}",
+              "source_sha": "${{ steps.vars.outputs.source_sha }}"
+            }
