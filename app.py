@@ -9,7 +9,8 @@ def home():
     return {
         "app": "sampleapp",
         "version": version,
-        "message": "Hello from azure-sample-app"
+        "message": "Hello from azure-sample-app",
+        "status": "success"
     }
 
 if __name__ == "__main__":
